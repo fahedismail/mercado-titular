@@ -75,45 +75,35 @@ export default function HomePage() {
   const [syncMsg, setSyncMsg] = useState("");
 
   useEffect(() => {
-    const read = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || "") as T; } catch { return fallback; } };
-    setAnswers(read("mercado-answers", {}));
-    setRefAnswers(read("mercado-ref-answers", {}));
-    setDocuments(read("mercado-documents", []));
-    setLogs(read("mercado-logs", []));
-    setNotifications(read("mercado-notifications", []));
-    setUsers(read("mercado-users", DEFAULT_USERS));
+    // Session restore (login state only)
     try { const s = sessionStorage.getItem("mercado-session"); if (s) setSession(JSON.parse(s)); } catch {}
-    // Auto-sync users from Firebase on page load (so password changes work across devices)
+    // Firebase is the single source of truth — load all data from cloud
     syncDownload().then(remote => {
-      if (remote?.users && remote.users.length > 0) {
-        setUsers(remote.users);
-        localStorage.setItem("mercado-users", JSON.stringify(remote.users));
+      if (remote) {
+        if (remote.answers && Object.keys(remote.answers).length > 0) setAnswers(remote.answers);
+        if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) setRefAnswers(remote.refAnswers);
+        if (remote.documents) setDocuments(remote.documents);
+        if (remote.logs) setLogs(remote.logs);
+        if (remote.notifications) setNotifications(remote.notifications);
+        if (remote.users && remote.users.length > 0) setUsers(remote.users);
       }
-      if (remote?.answers && Object.keys(remote.answers).length > 0) {
-        setAnswers(prev => { const merged = { ...prev, ...remote.answers }; localStorage.setItem("mercado-answers", JSON.stringify(merged)); return merged; });
-      }
-      if (remote?.refAnswers && Object.keys(remote.refAnswers).length > 0) {
-        setRefAnswers(prev => { const merged = { ...prev, ...remote.refAnswers }; localStorage.setItem("mercado-ref-answers", JSON.stringify(merged)); return merged; });
-      }
-      if (remote?.documents) { setDocuments(remote.documents); localStorage.setItem("mercado-documents", JSON.stringify(remote.documents)); }
-      if (remote?.logs) { setLogs(remote.logs); localStorage.setItem("mercado-logs", JSON.stringify(remote.logs)); }
-      if (remote?.notifications) { setNotifications(remote.notifications); localStorage.setItem("mercado-notifications", JSON.stringify(remote.notifications)); }
     }).catch(() => {});
   }, []);
 
-  // --- Auto-upload to Firebase whenever data changes (debounced 2s) ---
+  // --- Auto-upload to Firebase whenever data changes (debounced 1.5s) ---
   const uploadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
   useEffect(() => {
     if (isInitialLoad.current) { isInitialLoad.current = false; return; }
     if (uploadTimer.current) clearTimeout(uploadTimer.current);
     uploadTimer.current = setTimeout(() => {
+      skipNextSnapshot.current = true;
       syncUpload({ answers, refAnswers, documents, logs, notifications, users }).then(() => {
         setSaveState("Salvo na nuvem ✓");
       }).catch(() => {
         setSaveState("Erro ao salvar na nuvem");
       });
-    }, 2000);
+    }, 1500);
     return () => { if (uploadTimer.current) clearTimeout(uploadTimer.current); };
   }, [answers, refAnswers, documents, logs, notifications, users]);
 
@@ -122,16 +112,12 @@ export default function HomePage() {
   useEffect(() => {
     const unsub = syncListen((remote) => {
       if (skipNextSnapshot.current) { skipNextSnapshot.current = false; return; }
-      if (remote.answers && Object.keys(remote.answers).length > 0) {
-        setAnswers(prev => { const merged = { ...prev, ...remote.answers }; localStorage.setItem("mercado-answers", JSON.stringify(merged)); return merged; });
-      }
-      if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) {
-        setRefAnswers(prev => { const merged = { ...prev, ...remote.refAnswers }; localStorage.setItem("mercado-ref-answers", JSON.stringify(merged)); return merged; });
-      }
-      if (remote.documents) { setDocuments(remote.documents); localStorage.setItem("mercado-documents", JSON.stringify(remote.documents)); }
-      if (remote.logs) { setLogs(remote.logs); localStorage.setItem("mercado-logs", JSON.stringify(remote.logs)); }
-      if (remote.notifications) { setNotifications(remote.notifications); localStorage.setItem("mercado-notifications", JSON.stringify(remote.notifications)); }
-      if (remote.users && remote.users.length > 0) { setUsers(remote.users); localStorage.setItem("mercado-users", JSON.stringify(remote.users)); }
+      if (remote.answers && Object.keys(remote.answers).length > 0) setAnswers(remote.answers);
+      if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) setRefAnswers(remote.refAnswers);
+      if (remote.documents) setDocuments(remote.documents);
+      if (remote.logs) setLogs(remote.logs);
+      if (remote.notifications) setNotifications(remote.notifications);
+      if (remote.users && remote.users.length > 0) setUsers(remote.users);
       setSaveState("Atualizado ao vivo ✓");
     });
     return () => unsub();
@@ -153,12 +139,12 @@ export default function HomePage() {
 
   function addLog(action: string, actor = session?.name || "Sistema") {
     const next = [{ id: crypto.randomUUID(), at: now(), user: actor, action }, ...logs].slice(0, 200);
-    setLogs(next); localStorage.setItem("mercado-logs", JSON.stringify(next));
+    setLogs(next);
   }
 
   function addNotification(message: string) {
     const next = [{ id: crypto.randomUUID(), at: now(), message, read: false }, ...notifications].slice(0, 100);
-    setNotifications(next); localStorage.setItem("mercado-notifications", JSON.stringify(next));
+    setNotifications(next);
   }
 
   function login(e: React.FormEvent) {
@@ -173,21 +159,17 @@ export default function HomePage() {
   function logout() { addLog("Saiu do portal"); setSession(null); setSelectedUser(null); setPassword(""); sessionStorage.removeItem("mercado-session"); setView("dashboard"); }
 
   function updateAnswer(question: Question, value: string | string[]) {
-    skipNextSnapshot.current = true;
     setAnswers(prev => {
       const next = { ...prev, [question.id]: value };
       setSaveState("Salvando...");
-      window.setTimeout(() => { localStorage.setItem("mercado-answers", JSON.stringify(next)); setSaveState("Todas as alterações estão salvas"); }, 250);
       return next;
     });
   }
 
   function updateRefAnswer(questionId: string, value: string | string[]) {
-    skipNextSnapshot.current = true;
     setRefAnswers(prev => {
       const next = { ...prev, [questionId]: value };
       setSaveState("Salvando...");
-      window.setTimeout(() => { localStorage.setItem("mercado-ref-answers", JSON.stringify(next)); setSaveState("Todas as alterações estão salvas"); }, 250);
       return next;
     });
   }
@@ -249,7 +231,7 @@ export default function HomePage() {
     if (!validateFinal()) return;
     const built = buildPdf();
     const record: DocumentRecord = { id: crypto.randomUUID(), name: built.name, createdAt: now(), progress, dataUri: built.dataUri, category: "briefing" };
-    const nextDocs = [record, ...documents]; setDocuments(nextDocs); localStorage.setItem("mercado-documents", JSON.stringify(nextDocs));
+    const nextDocs = [record, ...documents]; setDocuments(nextDocs);
     addLog(`Gerou uma nova versão do briefing: ${built.name}`);
     addNotification(`Sara gerou o briefing (${progress}% completo)`);
     downloadDocument(record); setView("library");
@@ -257,28 +239,20 @@ export default function HomePage() {
 
   function downloadDocument(d: DocumentRecord) { const a = document.createElement("a"); a.href = d.dataUri; a.download = d.name; a.click(); addLog(`Baixou o documento ${d.name}`); }
 
-  function saveUsers(next: AppUser[]) { setUsers(next); localStorage.setItem("mercado-users", JSON.stringify(next)); }
+  function saveUsers(next: AppUser[]) { setUsers(next); }
 
   async function handleSync() {
     setSyncing(true); setSyncMsg("");
     try {
-      // Upload local data (including users with passwords)
       await syncUpload({ answers, refAnswers, documents, logs, notifications, users });
-      // Download remote data
       const remote = await syncDownload();
       if (remote) {
-        if (remote.answers && Object.keys(remote.answers).length > 0) {
-          const merged = { ...answers, ...remote.answers };
-          setAnswers(merged); localStorage.setItem("mercado-answers", JSON.stringify(merged));
-        }
-        if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) {
-          const merged = { ...refAnswers, ...remote.refAnswers };
-          setRefAnswers(merged); localStorage.setItem("mercado-ref-answers", JSON.stringify(merged));
-        }
-        if (remote.documents) { setDocuments(remote.documents); localStorage.setItem("mercado-documents", JSON.stringify(remote.documents)); }
-        if (remote.logs) { setLogs(remote.logs); localStorage.setItem("mercado-logs", JSON.stringify(remote.logs)); }
-        if (remote.notifications) { setNotifications(remote.notifications); localStorage.setItem("mercado-notifications", JSON.stringify(remote.notifications)); }
-        if (remote.users && remote.users.length > 0) { setUsers(remote.users); localStorage.setItem("mercado-users", JSON.stringify(remote.users)); }
+        if (remote.answers && Object.keys(remote.answers).length > 0) setAnswers(remote.answers);
+        if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) setRefAnswers(remote.refAnswers);
+        if (remote.documents) setDocuments(remote.documents);
+        if (remote.logs) setLogs(remote.logs);
+        if (remote.notifications) setNotifications(remote.notifications);
+        if (remote.users && remote.users.length > 0) setUsers(remote.users);
       }
       setSyncMsg("Sincronizado!"); addLog("Sincronizou os dados com a nuvem");
     } catch (err) {
@@ -445,7 +419,7 @@ function ClientDashboard({ name, progress, refProgress, currentEtapa, setView }:
 function AdminDashboard({ progress, refProgress, notifications, setNotifications, setView, logs }: any) {
   function markAllRead() {
     const next = notifications.map((n: Notification) => ({ ...n, read: true }));
-    setNotifications(next); localStorage.setItem("mercado-notifications", JSON.stringify(next));
+    setNotifications(next);
   }
   const unread = notifications.filter((n: Notification) => !n.read).length;
   const currentEtapa = progress === 100 ? (refProgress === 100 ? 2 : 1) : 0;
