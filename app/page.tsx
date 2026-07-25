@@ -75,9 +75,7 @@ export default function HomePage() {
   const [syncMsg, setSyncMsg] = useState("");
 
   useEffect(() => {
-    // Session restore (login state only)
     try { const s = sessionStorage.getItem("mercado-session"); if (s) setSession(JSON.parse(s)); } catch {}
-    // Firebase is the single source of truth — load all data from cloud
     syncDownload().then(remote => {
       if (remote) {
         if (remote.answers && Object.keys(remote.answers).length > 0) setAnswers(remote.answers);
@@ -90,14 +88,17 @@ export default function HomePage() {
     }).catch(() => {});
   }, []);
 
-  // --- Auto-upload to Firebase whenever data changes (debounced 1.5s) ---
+  // Track whether a state change came from local user action or remote sync
+  const isRemoteUpdate = useRef(false);
   const uploadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
+
+  // --- Auto-upload to Firebase whenever LOCAL data changes (debounced 1.5s) ---
   useEffect(() => {
     if (isInitialLoad.current) { isInitialLoad.current = false; return; }
+    if (isRemoteUpdate.current) { isRemoteUpdate.current = false; return; }
     if (uploadTimer.current) clearTimeout(uploadTimer.current);
     uploadTimer.current = setTimeout(() => {
-      skipNextSnapshot.current = true;
       syncUpload({ answers, refAnswers, documents, logs, notifications, users }).then(() => {
         setSaveState("Salvo na nuvem ✓");
       }).catch(() => {
@@ -108,12 +109,14 @@ export default function HomePage() {
   }, [answers, refAnswers, documents, logs, notifications, users]);
 
   // --- Real-time listener: receive changes from Firebase instantly ---
-  const skipNextSnapshot = useRef(false);
   useEffect(() => {
+    let firstSnapshot = true;
     const unsub = syncListen((remote) => {
-      if (skipNextSnapshot.current) { skipNextSnapshot.current = false; return; }
-      if (remote.answers && Object.keys(remote.answers).length > 0) setAnswers(remote.answers);
-      if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) setRefAnswers(remote.refAnswers);
+      // Skip the initial snapshot (we already loaded via syncDownload)
+      if (firstSnapshot) { firstSnapshot = false; return; }
+      isRemoteUpdate.current = true;
+      if (remote.answers) setAnswers(remote.answers);
+      if (remote.refAnswers) setRefAnswers(remote.refAnswers);
       if (remote.documents) setDocuments(remote.documents);
       if (remote.logs) setLogs(remote.logs);
       if (remote.notifications) setNotifications(remote.notifications);
