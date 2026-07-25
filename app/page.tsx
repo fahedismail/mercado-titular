@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, ArrowLeft, CheckCircle2, ChevronRight, ClipboardList, Download,
   FileText, FolderOpen, LayoutDashboard, Lock, LogOut, Menu, MessageSquare,
-  Settings, ShieldCheck, Sparkles, Star, UserPlus, UserRound, Users,
+  Plus, Settings, ShieldCheck, Sparkles, Star, UserPlus, UserRound, Users,
   Instagram, Globe, Megaphone, CalendarDays, Film, BookOpen,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
@@ -71,11 +71,6 @@ export default function HomePage() {
   const [showMissing, setShowMissing] = useState(false);
   const [missingSource, setMissingSource] = useState<"briefing"|"ref">("briefing");
   const [libraryTab, setLibraryTab] = useState("briefing");
-
-  // Helper to read from localStorage (cache)
-  const read = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || "") as T; } catch { return fallback; } };
-  // Helper to save to localStorage (cache)
-  const cache = (key: string, value: any) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
 
   // Helper to read from localStorage (cache)
   const read = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || "") as T; } catch { return fallback; } };
@@ -563,6 +558,21 @@ function RefQuestionField({ question, value, onChange, invalid }: { question: Re
   if (question.type === "textarea") return <label id={`field-${question.id}`} className={cls}><span>{question.label}{question.required && <b>*</b>}</span>{question.help && <small>{question.help}</small>}<textarea value={(value as string) || ""} placeholder={question.placeholder} onChange={e => onChange(e.target.value)} rows={4}/>{invalid && <em>Esta pergunta obrigatória precisa ser preenchida.</em>}</label>;
   if (question.type === "multiselect") { const selected = Array.isArray(value) ? value : []; return <fieldset id={`field-${question.id}`} className={`${cls} choices`}><legend>{question.label}{question.required && <b>*</b>}</legend><div>{question.options?.map(o => <label key={o}><input type="checkbox" checked={selected.includes(o)} onChange={e => onChange(e.target.checked ? [...selected, o] : selected.filter(x => x !== o))}/><span>{o}</span></label>)}</div>{invalid && <em>Marque pelo menos uma opção.</em>}</fieldset>; }
   if (question.type === "image") return <label id={`field-${question.id}`} className={`${cls} upload-field`}><span>{question.label}{question.required && <b>*</b>}</span>{question.help && <small>{question.help}</small>}<input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (!f) return; if (f.size > 2_000_000) { alert("Use uma imagem com até 2 MB."); return; } const r = new FileReader(); r.onload = () => onChange(String(r.result)); r.readAsDataURL(f); }}/>{typeof value === "string" && value.startsWith("data:image") && <img src={value} alt="Prévia"/>}</label>;
+  if (question.type === "multi-url") {
+    const links: string[] = Array.isArray(value) ? value : (value ? [value as string] : []);
+    const count = Math.max(links.length, question.initialCount || 3);
+    const padded = [...links];
+    while (padded.length < count) padded.push("");
+    const update = (idx: number, v: string) => { const next = [...padded]; next[idx] = v; onChange(next); };
+    const addField = () => onChange([...padded, ""]);
+    return <div id={`field-${question.id}`} className={cls}>
+      <span>{question.label}{question.required && <b>*</b>}</span>
+      {padded.map((link, i) => <input key={i} type="url" value={link} placeholder={question.placeholder || "https://..."} onChange={e => update(i, e.target.value)} style={{ marginBottom: 8 }}/>)}
+      <button type="button" className="secondary small-btn" onClick={addField} style={{ marginTop: 4 }}><Plus size={16}/>Adicionar mais um link</button>
+      {invalid && <em>Preencha pelo menos um link.</em>}
+    </div>;
+  }
+
   if (question.type === "url") return <label id={`field-${question.id}`} className={cls}><span>{question.label}{question.required && <b>*</b>}</span><input type="url" value={(value as string) || ""} placeholder={question.placeholder} onChange={e => onChange(e.target.value)}/>{invalid && <em>Preencha este campo.</em>}</label>;
 
   return <label id={`field-${question.id}`} className={cls}><span>{question.label}{question.required && <b>*</b>}</span><input type="text" value={(value as string) || ""} placeholder={question.placeholder} onChange={e => onChange(e.target.value)}/>{invalid && <em>Preencha este campo.</em>}</label>;
