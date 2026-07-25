@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, ArrowLeft, CheckCircle2, ChevronRight, ClipboardList, Download,
   FileText, FolderOpen, LayoutDashboard, Lock, LogOut, Menu, MessageSquare,
-  RefreshCw, Settings, ShieldCheck, Sparkles, Star, UserPlus, UserRound, Users,
+  Settings, ShieldCheck, Sparkles, Star, UserPlus, UserRound, Users,
   Instagram, Globe, Megaphone, CalendarDays, Film, BookOpen,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
@@ -71,8 +71,11 @@ export default function HomePage() {
   const [showMissing, setShowMissing] = useState(false);
   const [missingSource, setMissingSource] = useState<"briefing"|"ref">("briefing");
   const [libraryTab, setLibraryTab] = useState("briefing");
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState("");
+
+  // Helper to read from localStorage (cache)
+  const read = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || "") as T; } catch { return fallback; } };
+  // Helper to save to localStorage (cache)
+  const cache = (key: string, value: any) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
 
   // Helper to read from localStorage (cache)
   const read = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || "") as T; } catch { return fallback; } };
@@ -264,28 +267,6 @@ export default function HomePage() {
 
   function saveUsers(next: AppUser[]) { setUsers(next); }
 
-  async function handleSync() {
-    setSyncing(true); setSyncMsg("");
-    try {
-      await syncUpload({ answers, refAnswers, documents, logs, notifications, users });
-      const remote = await syncDownload();
-      if (remote) {
-        if (remote.answers && Object.keys(remote.answers).length > 0) setAnswers(remote.answers);
-        if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) setRefAnswers(remote.refAnswers);
-        if (remote.documents) setDocuments(remote.documents);
-        if (remote.logs) setLogs(remote.logs);
-        if (remote.notifications) setNotifications(remote.notifications);
-        if (remote.users && remote.users.length > 0) setUsers(remote.users);
-      }
-      setSyncMsg("Sincronizado!"); addLog("Sincronizou os dados com a nuvem");
-    } catch (err) {
-      console.error(err);
-      setSyncMsg("Erro ao sincronizar");
-    }
-    setSyncing(false);
-    setTimeout(() => setSyncMsg(""), 3000);
-  }
-
   // --- LOGIN ---
   if (!session) {
     if (!selectedUser) {
@@ -333,9 +314,6 @@ export default function HomePage() {
         <button className="menu-button" onClick={()=>setMobileMenu(!mobileMenu)}><Menu/></button>
         <div><p className="eyebrow">Projeto de marca</p><h2>{titleMap[view]}</h2></div>
         <div className="topbar-actions">
-          <button className={`sync-btn ${syncing ? "spinning" : ""}`} onClick={handleSync} disabled={syncing} title="Sincronizar dados">
-            <RefreshCw size={18}/>{syncMsg && <span className="sync-msg">{syncMsg}</span>}
-          </button>
           <div className="save-status"><span></span>{saveState}</div>
         </div>
       </header>
