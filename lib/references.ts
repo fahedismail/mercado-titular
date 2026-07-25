@@ -1,4 +1,4 @@
-export type RefQuestionType = "text" | "textarea" | "multiselect" | "url" | "image" | "rating" | "repeater";
+export type RefQuestionType = "text" | "textarea" | "multiselect" | "url" | "multi-url" | "image" | "rating" | "repeater";
 
 export type RefQuestion = {
   id: string;
@@ -8,6 +8,7 @@ export type RefQuestion = {
   options?: string[];
   placeholder?: string;
   help?: string;
+  initialCount?: number;
   repeaterFields?: { id: string; label: string; type: "text" | "url"; placeholder?: string }[];
 };
 
@@ -55,7 +56,7 @@ export const referenceSections: RefSection[] = [
     title: "2. Sites",
     description: "Sites de restaurantes, mercados ou delivery que considera bons.",
     questions: [
-      { id: "ref_site_link", label: "Link do site", type: "url", placeholder: "https://..." },
+      { id: "ref_site_links", label: "Links de sites", type: "multi-url", placeholder: "https://...", initialCount: 3 },
       { id: "ref_site_liked", label: "O que gostou?", type: "textarea", required: true },
       { id: "ref_site_disliked", label: "O que não gostou?", type: "textarea" },
       { id: "ref_site_copy", label: "O que copiaria?", type: "textarea" },
