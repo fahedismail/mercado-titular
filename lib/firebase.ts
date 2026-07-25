@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA-tGQVZboILN4Kiayk9Kg863RLzjFQhBY",
@@ -33,4 +33,10 @@ export async function syncDownload(): Promise<SyncData | null> {
   const snap = await getDoc(doc(db, "projeto", "mercado-titular-data"));
   if (snap.exists()) return snap.data() as SyncData;
   return null;
+}
+
+export function syncListen(callback: (data: SyncData) => void): () => void {
+  return onSnapshot(doc(db, "projeto", "mercado-titular-data"), (snap) => {
+    if (snap.exists()) callback(snap.data() as SyncData);
+  });
 }

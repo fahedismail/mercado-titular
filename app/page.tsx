@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, ArrowLeft, CheckCircle2, ChevronRight, ClipboardList, Download,
   FileText, FolderOpen, LayoutDashboard, Lock, LogOut, Menu, MessageSquare,
@@ -10,7 +10,7 @@ import {
 import { jsPDF } from "jspdf";
 import { questionById, requiredQuestionIds, sections, type Question } from "@/lib/questionnaire";
 import { referenceSections, refRequiredQuestionIds, refQuestionById, type RefQuestion } from "@/lib/references";
-import { syncUpload, syncDownload } from "@/lib/firebase";
+import { syncUpload, syncDownload, syncListen } from "@/lib/firebase";
 
 type Role = "admin" | "client";
 type Answers = Record<string, string | string[]>;
@@ -101,6 +101,42 @@ export default function HomePage() {
     }).catch(() => {});
   }, []);
 
+  // --- Auto-upload to Firebase whenever data changes (debounced 2s) ---
+  const uploadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoad = useRef(true);
+  useEffect(() => {
+    if (isInitialLoad.current) { isInitialLoad.current = false; return; }
+    if (uploadTimer.current) clearTimeout(uploadTimer.current);
+    uploadTimer.current = setTimeout(() => {
+      syncUpload({ answers, refAnswers, documents, logs, notifications, users }).then(() => {
+        setSaveState("Salvo na nuvem ✓");
+      }).catch(() => {
+        setSaveState("Erro ao salvar na nuvem");
+      });
+    }, 2000);
+    return () => { if (uploadTimer.current) clearTimeout(uploadTimer.current); };
+  }, [answers, refAnswers, documents, logs, notifications, users]);
+
+  // --- Real-time listener: receive changes from Firebase instantly ---
+  const skipNextSnapshot = useRef(false);
+  useEffect(() => {
+    const unsub = syncListen((remote) => {
+      if (skipNextSnapshot.current) { skipNextSnapshot.current = false; return; }
+      if (remote.answers && Object.keys(remote.answers).length > 0) {
+        setAnswers(prev => { const merged = { ...prev, ...remote.answers }; localStorage.setItem("mercado-answers", JSON.stringify(merged)); return merged; });
+      }
+      if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) {
+        setRefAnswers(prev => { const merged = { ...prev, ...remote.refAnswers }; localStorage.setItem("mercado-ref-answers", JSON.stringify(merged)); return merged; });
+      }
+      if (remote.documents) { setDocuments(remote.documents); localStorage.setItem("mercado-documents", JSON.stringify(remote.documents)); }
+      if (remote.logs) { setLogs(remote.logs); localStorage.setItem("mercado-logs", JSON.stringify(remote.logs)); }
+      if (remote.notifications) { setNotifications(remote.notifications); localStorage.setItem("mercado-notifications", JSON.stringify(remote.notifications)); }
+      if (remote.users && remote.users.length > 0) { setUsers(remote.users); localStorage.setItem("mercado-users", JSON.stringify(remote.users)); }
+      setSaveState("Atualizado ao vivo ✓");
+    });
+    return () => unsub();
+  }, []);
+
   const doneCount = useMemo(() => requiredQuestionIds.filter(id => filled(answers[id])).length, [answers]);
   const progress = Math.round((doneCount / requiredQuestionIds.length) * 100);
 
@@ -137,6 +173,7 @@ export default function HomePage() {
   function logout() { addLog("Saiu do portal"); setSession(null); setSelectedUser(null); setPassword(""); sessionStorage.removeItem("mercado-session"); setView("dashboard"); }
 
   function updateAnswer(question: Question, value: string | string[]) {
+    skipNextSnapshot.current = true;
     setAnswers(prev => {
       const next = { ...prev, [question.id]: value };
       setSaveState("Salvando...");
@@ -146,6 +183,7 @@ export default function HomePage() {
   }
 
   function updateRefAnswer(questionId: string, value: string | string[]) {
+    skipNextSnapshot.current = true;
     setRefAnswers(prev => {
       const next = { ...prev, [questionId]: value };
       setSaveState("Salvando...");
