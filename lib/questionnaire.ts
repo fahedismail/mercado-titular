@@ -75,6 +75,38 @@ export const sections: Section[] = [
     { id: "orderSystem", label: "Como recebe pedidos atualmente?", type: "textarea", required: true },
     { id: "deliveryArea", label: "Área de entrega (bairros/raio)", type: "textarea" },
     { id: "deliveryFee", label: "Cobra taxa de entrega?", type: "text", placeholder: "Ex.: Grátis acima de R$50, ou R$5 fixo" }
+  ]},
+  { id: "produtos_mercado", title: "Produtos do mercado", description: "Detalhes sobre marcas e setores do mercado.", questions: [
+    { id: "marcasVende", label: "Quais marcas vende?", type: "textarea", required: true, placeholder: "Liste as principais marcas que comercializa" },
+    { id: "bebidasMercado", label: "Quais bebidas vende?", type: "textarea", required: true, placeholder: "Cervejas, refrigerantes, sucos, água..." },
+    { id: "acougue", label: "Tem açougue? Descreva o que oferece", type: "textarea", placeholder: "Tipos de corte, carnes especiais..." },
+    { id: "padaria", label: "Tem padaria? Descreva o que oferece", type: "textarea", placeholder: "Pães, bolos, salgados..." },
+    { id: "hortifruti", label: "Tem hortifruti? Descreva", type: "textarea", placeholder: "Frutas, verduras, legumes..." },
+    { id: "frios", label: "Tem seção de frios? Descreva", type: "textarea", placeholder: "Frios, queijos, embutidos..." }
+  ]},
+  { id: "lanchonete", title: "Lanchonete", description: "Detalhes sobre a lanchonete do estabelecimento.", questions: [
+    { id: "quaisLanches", label: "Quais lanches oferece?", type: "textarea", required: true, placeholder: "Hambúrguer, hot dog, sanduíches..." },
+    { id: "bebidasLanchonete", label: "Quais bebidas na lanchonete?", type: "textarea", placeholder: "Sucos, refrigerantes, milkshake..." },
+    { id: "porcoes", label: "Quais porções oferece?", type: "textarea", placeholder: "Batata frita, mandioca, frango..." },
+    { id: "fotosLanches", label: "Envie fotos dos lanches/porções", type: "image" }
+  ]},
+  { id: "domingo_frango", title: "Domingo — Frango assado", description: "Detalhes sobre o frango de domingo (diferencial).", questions: [
+    { id: "quantosFrangos", label: "Quantos frangos vende por domingo?", type: "text", required: true, placeholder: "Ex.: 50, 100..." },
+    { id: "fazReserva", label: "Faz reserva de frango?", type: "select", required: true, options: ["Sim", "Não", "Às vezes"] },
+    { id: "acabaRapido", label: "Acaba rápido?", type: "select", required: true, options: ["Sim, sempre esgota", "Às vezes", "Não"] },
+    { id: "horarioFrango", label: "Qual horário fica pronto / vende?", type: "text", required: true, placeholder: "Ex.: a partir das 11h" }
+  ]},
+  { id: "turismo", title: "Turismo local", description: "Detalhes sobre o turismo na região (potencial para atrair turistas).", questions: [
+    { id: "qualTurismo", label: "Qual tipo de turismo tem na região?", type: "multiselect", required: true, options: ["Rio", "Pesca", "Camping", "Praia", "Pousadas", "Cachoeira", "Trilhas", "Outro"] },
+    { id: "turismoDescricao", label: "Descreva o turismo local e como pode atrair turistas", type: "textarea", required: true, placeholder: "Conte sobre os pontos turísticos e como seu mercado pode se beneficiar" },
+    { id: "turismoPousadas", label: "Há pousadas ou hotéis próximos?", type: "textarea", placeholder: "Nomes ou quantidade aproximada" }
+  ]},
+  { id: "fotos_estabelecimento", title: "Fotos do estabelecimento", description: "Envie fotos atuais do seu negócio.", questions: [
+    { id: "fotoFachada", label: "Foto da fachada", type: "image", required: true },
+    { id: "fotoInterior", label: "Foto do interior", type: "image", required: true },
+    { id: "fotoLanches", label: "Foto dos lanches", type: "image" },
+    { id: "fotoMercado", label: "Foto do mercado (prateleiras/corredores)", type: "image" },
+    { id: "fotoFuncionarios", label: "Foto dos funcionários / equipe", type: "image" }
   ]}
 ];
 
