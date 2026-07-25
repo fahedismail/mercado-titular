@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Mercado Titular",
   description: "Plataforma de gestão de projeto - Site, Instagram, Facebook, WhatsApp para Mercado.",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

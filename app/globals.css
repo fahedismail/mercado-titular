@@ -79,4 +79,4 @@
 /* ─── Section heading ─── */
 .section-heading h2{font-family:Georgia,serif;font-size:28px;margin:0}
 
-@media(max-width:560px){.user-select-grid{grid-template-columns:1fr}.etapas-grid{grid-template-columns:1fr}.admin-btn-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.user-select-grid{grid-template-columns:1fr}.etapas-grid{grid-template-columns:1fr}.admin-btn-grid{grid-template-columns:1fr}.login-card{border-radius:18px}.login-card h2{font-size:28px}.user-select-btn{padding:20px 14px}.avatar-large{width:52px;height:52px}.topbar{height:64px;padding:0 14px}.topbar h2{font-size:18px}.sidebar-head h2{font-size:16px}.hero-card h1{font-size:28px}.section-heading h2{font-size:24px}.project-card h3{font-size:22px}.stats strong{font-size:26px}}
