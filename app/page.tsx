@@ -74,16 +74,29 @@ export default function HomePage() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
 
+  // Helper to read from localStorage (cache)
+  const read = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || "") as T; } catch { return fallback; } };
+  // Helper to save to localStorage (cache)
+  const cache = (key: string, value: any) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
+
   useEffect(() => {
     try { const s = sessionStorage.getItem("mercado-session"); if (s) setSession(JSON.parse(s)); } catch {}
+    // Load from localStorage FIRST (instant, offline-safe)
+    setAnswers(read("mercado-answers", {}));
+    setRefAnswers(read("mercado-ref-answers", {}));
+    setDocuments(read("mercado-documents", []));
+    setLogs(read("mercado-logs", []));
+    setNotifications(read("mercado-notifications", []));
+    setUsers(read("mercado-users", DEFAULT_USERS));
+    // Then sync from Firebase (source of truth — overwrites local cache)
     syncDownload().then(remote => {
       if (remote) {
-        if (remote.answers && Object.keys(remote.answers).length > 0) setAnswers(remote.answers);
-        if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) setRefAnswers(remote.refAnswers);
-        if (remote.documents) setDocuments(remote.documents);
-        if (remote.logs) setLogs(remote.logs);
-        if (remote.notifications) setNotifications(remote.notifications);
-        if (remote.users && remote.users.length > 0) setUsers(remote.users);
+        if (remote.answers && Object.keys(remote.answers).length > 0) { setAnswers(remote.answers); cache("mercado-answers", remote.answers); }
+        if (remote.refAnswers && Object.keys(remote.refAnswers).length > 0) { setRefAnswers(remote.refAnswers); cache("mercado-ref-answers", remote.refAnswers); }
+        if (remote.documents) { setDocuments(remote.documents); cache("mercado-documents", remote.documents); }
+        if (remote.logs) { setLogs(remote.logs); cache("mercado-logs", remote.logs); }
+        if (remote.notifications) { setNotifications(remote.notifications); cache("mercado-notifications", remote.notifications); }
+        if (remote.users && remote.users.length > 0) { setUsers(remote.users); cache("mercado-users", remote.users); }
       }
     }).catch(() => {});
   }, []);
@@ -93,10 +106,18 @@ export default function HomePage() {
   const uploadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
 
-  // --- Auto-upload to Firebase whenever LOCAL data changes (debounced 1.5s) ---
+  // --- Auto-upload to Firebase + cache locally whenever LOCAL data changes ---
   useEffect(() => {
     if (isInitialLoad.current) { isInitialLoad.current = false; return; }
+    // Always cache locally for instant reload
+    cache("mercado-answers", answers);
+    cache("mercado-ref-answers", refAnswers);
+    cache("mercado-documents", documents);
+    cache("mercado-logs", logs);
+    cache("mercado-notifications", notifications);
+    cache("mercado-users", users);
     if (isRemoteUpdate.current) { isRemoteUpdate.current = false; return; }
+    // Upload to Firebase (debounced)
     if (uploadTimer.current) clearTimeout(uploadTimer.current);
     uploadTimer.current = setTimeout(() => {
       syncUpload({ answers, refAnswers, documents, logs, notifications, users }).then(() => {
@@ -112,15 +133,14 @@ export default function HomePage() {
   useEffect(() => {
     let firstSnapshot = true;
     const unsub = syncListen((remote) => {
-      // Skip the initial snapshot (we already loaded via syncDownload)
       if (firstSnapshot) { firstSnapshot = false; return; }
       isRemoteUpdate.current = true;
-      if (remote.answers) setAnswers(remote.answers);
-      if (remote.refAnswers) setRefAnswers(remote.refAnswers);
-      if (remote.documents) setDocuments(remote.documents);
-      if (remote.logs) setLogs(remote.logs);
-      if (remote.notifications) setNotifications(remote.notifications);
-      if (remote.users && remote.users.length > 0) setUsers(remote.users);
+      if (remote.answers) { setAnswers(remote.answers); cache("mercado-answers", remote.answers); }
+      if (remote.refAnswers) { setRefAnswers(remote.refAnswers); cache("mercado-ref-answers", remote.refAnswers); }
+      if (remote.documents) { setDocuments(remote.documents); cache("mercado-documents", remote.documents); }
+      if (remote.logs) { setLogs(remote.logs); cache("mercado-logs", remote.logs); }
+      if (remote.notifications) { setNotifications(remote.notifications); cache("mercado-notifications", remote.notifications); }
+      if (remote.users && remote.users.length > 0) { setUsers(remote.users); cache("mercado-users", remote.users); }
       setSaveState("Atualizado ao vivo ✓");
     });
     return () => unsub();
